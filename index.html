@@ -1,1008 +1,992 @@
-<!doctype html>
-<html lang="en" class="h-full">
- <head>
+<!DOCTYPE html>
+<html lang="en">
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dark Notes</title>
-  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
-  <script src="/_sdk/element_sdk.js"></script>
-  <script src="/_sdk/data_sdk.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <title>ELITE STUDY · focus portal</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; font-family: 'DM Sans', sans-serif; }
-    body { overflow: hidden; }
-
-    .app-shell { height: 100%; width: 100%; display: flex; flex-direction: column; overflow: hidden; position: relative; }
-    
-    /* Particle canvas */
-    #particleCanvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 1; }
-
-    .notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; position: relative; z-index: 2; }
-
-    .note-card {
-      border-radius: 18px;
-      padding: 24px;
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-      position: relative;
-      overflow: hidden;
-      border: 2px solid transparent;
-      animation: slideUp 0.5s ease-out;
-    }
-    @keyframes slideUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
-    .note-card::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 16px;
-      z-index: -1;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-    .note-card:hover::before { opacity: 0.15; }
-    .note-card:hover { 
-      transform: translateY(-8px) scale(1.02);
-      border-color: currentColor;
-      filter: brightness(1.1);
-    }
-
-    .note-card .accent-line {
-      position: absolute;
+    /* INITIAL POPUP OVERLAY */
+    .portal-overlay {
+      position: fixed;
       top: 0;
       left: 0;
-      right: 0;
-      height: 4px;
-      border-radius: 18px 18px 0 0;
-    }
-
-    .note-card .color-dot {
-      position: absolute;
-      top: 14px;
-      right: 14px;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      opacity: 0.7;
-    }
-
-    .note-card .pin-badge {
-      position: absolute;
-      top: 14px;
-      right: 30px;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      animation: pinPulse 0.6s ease-out;
-    }
-    @keyframes pinPulse {
-      0% { transform: scale(0); opacity: 0; }
-      50% { transform: scale(1.2); }
-      100% { transform: scale(1); opacity: 1; }
-    }
-
-    .note-card .word-count {
-      position: absolute;
-      bottom: 12px;
-      right: 12px;
-      font-size: 11px;
-      opacity: 0.4;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .search-input {
-      border: none;
-      outline: none;
-      background: transparent;
       width: 100%;
-      font-family: 'DM Sans', sans-serif;
-    }
-    .search-input::placeholder { opacity: 0.4; }
-
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      backdrop-filter: blur(12px);
-      z-index: 50;
+      height: 100%;
+      background: #0a0718;
+      z-index: 10000;
       display: flex;
-      align-items: center;
       justify-content: center;
-      opacity: 0;
+      align-items: center;
+      transition: opacity 1.5s cubic-bezier(0.23, 1, 0.32, 1), visibility 1.5s;
       pointer-events: none;
-      transition: opacity 0.3s ease;
     }
-    .modal-backdrop.active { opacity: 1; pointer-events: all; }
-
-    .modal-panel {
-      width: 90%;
-      max-width: 580px;
-      border-radius: 24px;
-      padding: 32px;
-      transform: translateY(30px) scale(0.95);
-      transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-      max-height: 85%;
-      overflow-y: auto;
-      border: 2px solid rgba(255,255,255,0.1);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-      animation: modalSlideIn 0.4s ease-out;
+    
+    .portal-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
     }
-    @keyframes modalSlideIn {
-      from { opacity: 0; transform: translateY(40px) scale(0.9); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-    .modal-backdrop.active .modal-panel { transform: translateY(0) scale(1); }
-
-    .color-selector {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-    }
-    .color-option {
-      width: 36px;
-      height: 36px;
-      border-radius: 12px;
-      border: 2px solid transparent;
-      cursor: pointer;
-      transition: all 0.2s ease;
+    
+    .portal-content {
+      text-align: center;
+      color: white;
       position: relative;
     }
-    .color-option:hover { transform: scale(1.15); }
-    .color-option.selected {
-      border-color: #fff;
-      box-shadow: 0 0 12px currentColor;
+    
+    .portal-title {
+      font-size: 4rem;
+      font-weight: 800;
+      background: linear-gradient(145deg, #bba4ff, #7f5cd9);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      letter-spacing: 8px;
+      animation: glowPulse 2s infinite;
+      text-shadow: 0 0 30px #9370db;
+      margin-bottom: 1rem;
     }
-    .color-option::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 10px;
+    
+    .portal-sub {
+      font-size: 1.2rem;
+      color: #b9a6e8;
+      letter-spacing: 4px;
+    }
+    
+    @keyframes glowPulse {
+      0% { text-shadow: 0 0 20px #a185e0, 0 0 40px #6b4eb3; }
+      50% { text-shadow: 0 0 40px #ccb2ff, 0 0 80px #8a6ed4; }
+      100% { text-shadow: 0 0 20px #a185e0, 0 0 40px #6b4eb3; }
+    }
+    
+    /* particles canvas */
+    #particle-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10001;
+      transition: opacity 1.5s;
+    }
+    
+    #particle-canvas.fade-out {
       opacity: 0;
-      animation: colorPop 0.4s ease-out;
-    }
-    @keyframes colorPop {
-      0% { transform: scale(0); opacity: 1; }
-      100% { transform: scale(2.5); opacity: 0; }
     }
 
-    .modal-panel textarea {
-      border: none;
-      outline: none;
-      background: transparent;
-      width: 100%;
-      resize: vertical;
-      font-family: 'DM Sans', sans-serif;
-      min-height: 180px;
-    }
-    .modal-panel input {
-      border: none;
-      outline: none;
-      background: transparent;
-      width: 100%;
-      font-family: 'DM Sans', sans-serif;
-    }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-
-    .fab {
-      position: fixed;
-      bottom: 28px;
-      right: 28px;
-      width: 64px;
-      height: 64px;
-      border-radius: 20px;
-      border: none;
-      cursor: pointer;
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at 20% 30%, #161229, #080614);
+      padding: 1.5rem;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-      z-index: 40;
-      font-weight: 700;
+      transition: background 0.3s ease;
+      opacity: 0;
+      animation: bodyFadeIn 0.5s ease forwards 1.8s;
     }
-    .fab:hover { 
-      transform: scale(1.12) rotate(90deg);
-      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
-    }
-    .fab:active { transform: scale(0.95); }
-
-    .toast-container {
-      position: fixed;
-      bottom: 110px;
-      right: 28px;
-      z-index: 60;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .toast {
-      padding: 14px 20px;
-      border-radius: 14px;
-      font-size: 14px;
-      font-weight: 500;
-      animation: toastIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-      max-width: 300px;
-      backdrop-filter: blur(10px);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .toast.exiting { animation: toastOut 0.3s ease-out forwards; }
-
-    @keyframes toastIn {
-      from { opacity: 0; transform: translateX(30px) scale(0.8); }
-      to { opacity: 1; transform: translateX(0) scale(1); }
-    }
-    @keyframes toastOut {
-      from { opacity: 1; transform: translateX(0); }
-      to { opacity: 0; transform: translateX(30px) scale(0.8); }
-    }
-
-    .delete-confirm-bar {
-      display: flex;
-      gap: 10px;
-      margin-top: 14px;
-      animation: slideUp 0.3s ease-out;
-    }
-
-    .count-badge {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-    }
-
-    .empty-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 80px 20px;
-      text-align: center;
-      animation: fadeIn 0.5s ease-out;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; }
+    
+    @keyframes bodyFadeIn {
       to { opacity: 1; }
     }
-    .empty-state svg { margin-bottom: 20px; animation: float 3s ease-in-out infinite; }
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
+
+    body.focus-mode {
+      background: radial-gradient(circle at 20% 30%, #0c0a16, #020108);
     }
 
-    .scroll-area {
-      flex: 1;
-      overflow-y: auto;
-      padding: 24px 28px 120px;
-      position: relative;
-      z-index: 2;
-    }
-    .scroll-area::-webkit-scrollbar { width: 8px; }
-    .scroll-area::-webkit-scrollbar-track { background: transparent; }
-    .scroll-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
-    .scroll-area::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
-
-    @media (max-width: 640px) {
-      .notes-grid { grid-template-columns: 1fr; }
-      .scroll-area { padding: 16px 16px 120px; }
-      .fab { width: 56px; height: 56px; }
+    .dashboard {
+      max-width: 1600px;
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.3rem;
     }
 
-    .loading-spinner {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid transparent;
-      border-top-color: currentColor;
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    .glass-card {
+      background: rgba(18, 14, 30, 0.65);
+      backdrop-filter: blur(14px) saturate(200%);
+      -webkit-backdrop-filter: blur(14px) saturate(200%);
+      border: 1px solid rgba(150, 120, 230, 0.25);
+      border-radius: 2rem;
+      padding: 1.5rem 1.2rem;
+      box-shadow: 0 25px 45px -15px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(180, 140, 255, 0.15) inset;
+      transition: transform 0.2s ease, border-color 0.2s;
+      color: #ede8ff;
     }
 
-    .action-button {
-      padding: 10px 18px;
-      border-radius: 12px;
-      border: none;
-      cursor: pointer;
-      font-family: 'DM Sans', sans-serif;
-      font-weight: 600;
-      font-size: 14px;
-      transition: all 0.2s ease;
+    .glass-card:hover {
+      border-color: rgba(180, 140, 255, 0.5);
+    }
+
+    .timer-display {
+      font-size: 4.5rem;
+      font-weight: 700;
+      letter-spacing: 4px;
+      text-align: center;
+      background: linear-gradient(145deg, #e2d0ff, #bba8f0);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 20px #8f75db;
+      margin: 0.2rem 0;
+    }
+
+    .timer-label {
+      text-align: center;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 5px;
+      color: #b4a3e6;
+    }
+
+    .button-group {
       display: flex;
+      justify-content: center;
+      gap: 0.7rem;
+      flex-wrap: wrap;
+      margin: 1rem 0;
+    }
+
+    .btn {
+      background: rgba(35, 28, 55, 0.9);
+      border: 1px solid rgba(190, 160, 250, 0.3);
+      color: #e0d2ff;
+      padding: 0.65rem 1.8rem;
+      border-radius: 3rem;
+      font-weight: 500;
+      font-size: 0.95rem;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: 0.2s;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+      display: inline-flex;
       align-items: center;
       gap: 6px;
     }
-    .action-button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-    .action-button:active { transform: scale(0.95); }
+
+    .btn-primary {
+      background: linear-gradient(145deg, #6b56b0, #493d7a);
+      border-color: #b69dff;
+      color: white;
+      font-weight: 600;
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(145deg, #836dd0, #5f4d9c);
+      border-color: #dac2ff;
+      box-shadow: 0 0 18px #9b85e2;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(70, 55, 105, 0.9);
+      border-color: #b197ff;
+    }
+
+    .badge {
+      background: #25203b;
+      border-radius: 40px;
+      padding: 0.5rem 1.3rem;
+      text-align: center;
+      border: 1px solid #5f4e88;
+      font-size: 1.2rem;
+      display: inline-block;
+      align-self: center;
+    }
+
+    .badge span {
+      color: #d8c4ff;
+      font-weight: 700;
+      font-size: 1.8rem;
+      margin-left: 6px;
+    }
+
+    /* todo */
+    .todo-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .todo-input-group {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .todo-input-group input {
+      flex: 1;
+      background: rgba(15, 10, 28, 0.8);
+      border: 1px solid #4c3d70;
+      border-radius: 3rem;
+      padding: 0.8rem 1.2rem;
+      color: #f0e6ff;
+      font-size: 1rem;
+      outline: none;
+    }
+
+    .todo-input-group input:focus {
+      border-color: #b797ff;
+      background: #201b33;
+    }
+
+    .todo-items {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .todo-items li {
+      background: rgba(32, 25, 48, 0.8);
+      border-radius: 40px;
+      padding: 0.6rem 1rem 0.6rem 1.4rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid #5d4a82;
+    }
+
+    .todo-items li.completed .todo-text {
+      text-decoration: line-through;
+      color: #8f7cb2;
+    }
+
+    .todo-actions button {
+      background: transparent;
+      border: none;
+      color: #bba6e8;
+      font-size: 1.2rem;
+      cursor: pointer;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+    }
+
+    .todo-actions button:hover {
+      background: #4f3e73;
+    }
+
+    /* progress ring */
+    .progress-ring {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .ring-bg {
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      background: conic-gradient(#b59dff 0deg, #312b48 0deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ring-inner {
+      width: 100px;
+      height: 100px;
+      background: #18142b;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .progress-text {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #d3bdff;
+      line-height: 1;
+    }
+
+    /* NEW FOCUS STATS PANEL - replaces music player */
+    .focus-stats {
+      grid-column: span 1;
+      background: rgba(25, 18, 40, 0.7);
+      backdrop-filter: blur(16px);
+      border-radius: 2rem;
+      padding: 1.2rem;
+      border: 1px solid #7d63b0;
+      background-image: radial-gradient(circle at 30% 40%, #372e55 0%, #1f1933 90%);
+    }
+
+    .stats-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 1rem;
+      color: #c3adff;
+    }
+
+    .stats-header h4 {
+      font-weight: 400;
+      letter-spacing: 2px;
+      font-size: 1rem;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    .stat-block {
+      background: rgba(18, 14, 28, 0.7);
+      border-radius: 1.5rem;
+      padding: 1rem 0.5rem;
+      text-align: center;
+      border: 1px solid #6d559b;
+    }
+
+    .stat-number {
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: #d4bdff;
+      line-height: 1;
+    }
+
+    .stat-label-small {
+      font-size: 0.7rem;
+      color: #9b85c2;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .distraction-blocker {
+      background: #231f37;
+      border-radius: 1.5rem;
+      padding: 1rem;
+      margin: 1rem 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .blocker-toggle {
+      width: 50px;
+      height: 26px;
+      background: #3b3157;
+      border-radius: 30px;
+      position: relative;
+      cursor: pointer;
+      border: 1px solid #9b82d0;
+    }
+
+    .blocker-toggle.active {
+      background: #8f78d4;
+    }
+
+    .blocker-toggle::after {
+      content: '';
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      background: white;
+      border-radius: 50%;
+      top: 1px;
+      left: 2px;
+      transition: 0.2s;
+    }
+
+    .blocker-toggle.active::after {
+      left: 26px;
+    }
+
+    .focus-quote-mini {
+      font-style: italic;
+      font-size: 0.9rem;
+      color: #bda9f0;
+      text-align: center;
+      padding: 0.5rem;
+      background: #1e1830;
+      border-radius: 1.5rem;
+      margin-top: 0.5rem;
+    }
+
+    /* stats mini */
+    .stats-mini {
+      display: flex;
+      justify-content: space-around;
+      background: #231f37;
+      border-radius: 2rem;
+      padding: 0.7rem;
+      margin: 0.8rem 0;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #cbb2ff;
+    }
+
+    .stat-label {
+      font-size: 0.65rem;
+      color: #9e87cc;
+    }
+
+    .achievement-badge {
+      background: #2f2648;
+      border-radius: 2rem;
+      padding: 0.5rem 1rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      border: 1px solid #8d72c2;
+      margin: 0.2rem;
+    }
+
+    .focus-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #26203b;
+      border-radius: 3rem;
+      padding: 0.6rem 1.2rem;
+      border: 1px solid #6e58a0;
+    }
+
+    .toggle-switch {
+      width: 48px;
+      height: 24px;
+      background: #3b3157;
+      border-radius: 30px;
+      position: relative;
+      cursor: pointer;
+      border: 1px solid #8f74d0;
+    }
+
+    .toggle-switch.active {
+      background: #8f78d4;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      top: 1px;
+      left: 2px;
+      transition: 0.2s;
+    }
+
+    .toggle-switch.active::after {
+      left: 25px;
+    }
+
+    .notes-area {
+      background: #1e1830;
+      border: 1px solid #6d559b;
+      border-radius: 1.5rem;
+      padding: 0.8rem;
+      min-height: 80px;
+      color: #e4d0ff;
+      resize: vertical;
+      width: 100%;
+      margin-top: 0.8rem;
+    }
+
+    h3 {
+      font-weight: 400;
+      margin-bottom: 1rem;
+      color: #d0bbff;
+      border-left: 4px solid #9b82e0;
+      padding-left: 0.8rem;
+      font-size: 1.1rem;
+    }
+
+    .footer-note {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: #67548b;
+      font-size: 0.75rem;
+    }
+
+    /* responsive */
+    @media (max-width: 1200px) {
+      .dashboard { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 700px) {
+      .dashboard { grid-template-columns: 1fr; }
+    }
   </style>
-  <style>body { box-sizing: border-box; }</style>
- </head>
- <body class="h-full">
-  <div class="app-shell" id="appShell"><!-- Particle Canvas -->
-   <canvas id="particleCanvas"></canvas><!-- Header -->
-   <header id="appHeader" style="padding: 20px 24px 0; position: relative; z-index: 3;">
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-     <div style="display: flex; align-items: center; gap: 12px;">
-      <div id="logoIcon" style="width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center;"><i data-lucide="sparkles" style="width: 22px; height: 22px;"></i>
-      </div>
-      <h1 id="appTitle" style="font-size: 24px; font-weight: 700; letter-spacing: -0.5px;"></h1>
-     </div><span class="count-badge" id="noteCount">0 notes</span>
-    </div><!-- Search -->
-    <div id="searchBar" style="display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 14px; margin-bottom: 4px;"><i data-lucide="search" style="width: 18px; height: 18px; opacity: 0.4;"></i> <input type="text" class="search-input" id="searchInput" placeholder="Search your notes..." aria-label="Search notes">
+</head>
+<body>
+  <!-- PORTAL OVERLAY WITH PARTICLES -->
+  <div class="portal-overlay" id="portalOverlay">
+    <canvas id="particle-canvas"></canvas>
+    <div class="portal-content">
+      <div class="portal-title">FOCUS PORTAL</div>
+      <div class="portal-sub">enter the study dimension</div>
     </div>
-   </header><!-- Notes List -->
-   <main class="scroll-area" id="notesContainer" role="main">
-    <div class="notes-grid" id="notesGrid"></div>
-    <div class="empty-state" id="emptyState" style="display: none;"><i data-lucide="notebook-pen" style="width: 56px; height: 56px;"></i>
-     <p id="emptyText" style="font-size: 16px; font-weight: 500;"></p>
-     <p style="font-size: 13px; margin-top: 8px; opacity: 0.6;">Tap the + button to get started</p>
-    </div>
-   </main><!-- FAB --> <button class="fab" id="fabBtn" aria-label="Create new note"> <i data-lucide="plus" style="width: 28px; height: 28px;"></i> </button> <!-- Modal -->
-   <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true">
-    <div class="modal-panel" id="modalPanel">
-     <div class="modal-header">
-      <h2 id="modalTitle" style="font-size: 20px; font-weight: 700;"></h2>
-      <div style="display: flex; gap: 6px;"><button id="pinBtn" class="action-button" aria-label="Pin note" style="opacity: 0.5;"> <i data-lucide="pin" style="width: 16px; height: 16px;"></i> </button> <button id="deleteBtn" class="action-button" aria-label="Delete note" style="opacity: 0.5;"> <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i> </button> <button id="closeModal" class="action-button" aria-label="Close" style="opacity: 0.5;"> <i data-lucide="x" style="width: 16px; height: 16px;"></i> </button>
-      </div>
-     </div><!-- Color Selector -->
-     <div style="margin-bottom: 20px;">
-      <p style="font-size: 12px; opacity: 0.6; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Note Color</p>
-      <div class="color-selector" id="colorSelector"></div>
-     </div>
-     <div id="deleteConfirmArea"></div><label for="noteTitle" class="sr-only">Note title</label> <input id="noteTitle" type="text" placeholder="Note title..." style="font-size: 22px; font-weight: 700; margin-bottom: 14px; letter-spacing: -0.3px;"> <label for="noteContent" class="sr-only">Note content</label> <textarea id="noteContent" placeholder="Start writing..." style="line-height: 1.6;"></textarea>
-     <div style="display: flex; justify-content: flex-end; margin-top: 20px; gap: 10px;"><button id="saveBtn" class="action-button"> <i data-lucide="check" style="width: 16px; height: 16px;"></i> Save </button>
-     </div>
-    </div>
-   </div><!-- Toast Container -->
-   <div class="toast-container" id="toastContainer"></div>
   </div>
+
+  <div class="dashboard">
+    <!-- POMODORO CARD -->
+    <div class="glass-card">
+      <div class="timer-label">pomodoro</div>
+      <div class="timer-display" id="timer">25:00</div>
+      <div class="button-group">
+        <button class="btn btn-primary" id="startPauseBtn">▶ start</button>
+        <button class="btn btn-secondary" id="resetBtn">↺ reset</button>
+        <button class="btn btn-secondary" id="addFiveBtn">+5</button>
+      </div>
+      <div class="badge">sessions <span id="sessionCount">0</span></div>
+    </div>
+
+    <!-- TO-DO LIST -->
+    <div class="glass-card">
+      <h3>✧ TASKS (+5% each)</h3>
+      <div class="todo-list">
+        <div class="todo-input-group">
+          <input type="text" id="taskInput" placeholder="write task..." />
+          <button class="btn btn-primary" id="addTaskBtn" style="padding:0.7rem 1.5rem;">+</button>
+        </div>
+        <ul class="todo-items" id="todoList"></ul>
+      </div>
+    </div>
+
+    <!-- PROGRESS + ACHIEVEMENTS -->
+    <div class="glass-card">
+      <h3>📊 ELITE PROGRESS</h3>
+      <div class="progress-ring">
+        <div class="ring-bg" id="progressRing">
+          <div class="ring-inner">
+            <span class="progress-text" id="progressPercent">0</span>
+            <span style="font-size:0.8rem;">%</span>
+          </div>
+        </div>
+      </div>
+      <div class="stats-mini">
+        <div class="stat-item"><span class="stat-value" id="completedTasksStat">0</span><div class="stat-label">done</div></div>
+        <div class="stat-item"><span class="stat-value" id="sessionsStat">0</span><div class="stat-label">sessions</div></div>
+        <div class="stat-item"><span class="stat-value" id="streakStat">0</span><div class="stat-label">streak</div></div>
+      </div>
+      <div id="achievementBox" style="display:flex; flex-wrap:wrap; gap:4px; margin:8px 0;"></div>
+    </div>
+
+    <!-- 🔥 NEW FOCUS STATS PANEL - replaces music player completely -->
+    <div class="glass-card focus-stats">
+      <div class="stats-header">
+        <span style="font-size:1.6rem;">📈</span>
+        <h4>FOCUS STATS</h4>
+      </div>
+      
+      <div class="stat-grid">
+        <div class="stat-block">
+          <div class="stat-number" id="focusScore">87</div>
+          <div class="stat-label-small">focus score</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-number" id="totalMinutes">0</div>
+          <div class="stat-label-small">mins focused</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-number" id="tasksRate">0%</div>
+          <div class="stat-label-small">completion</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-number" id="dailyGoal">0/4</div>
+          <div class="stat-label-small">daily goal</div>
+        </div>
+      </div>
+
+      <!-- Distraction blocker toggle -->
+      <div class="distraction-blocker">
+        <span style="color:#d4bdff;">🚫 distraction blocker</span>
+        <div class="blocker-toggle" id="distractionToggle"></div>
+      </div>
+
+      <!-- Mini focus quote -->
+      <div class="focus-quote-mini" id="miniQuote">
+        "stay in the zone"
+      </div>
+      
+      <div style="margin-top: 0.8rem; text-align: center; color: #a586d6; font-size: 0.8rem;">
+        ⚡ real-time focus analytics
+      </div>
+    </div>
+
+    <!-- FOCUS TOOLS + NOTES -->
+    <div class="glass-card" style="grid-column: span 2;">
+      <div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
+        <div style="flex:1;">
+          <h3>🔇 FOCUS MODE</h3>
+          <div class="focus-toggle">
+            <span>darkest focus</span>
+            <div class="toggle-switch" id="focusToggle"></div>
+          </div>
+          <div style="margin-top:1.2rem;">
+            <h3>📝 QUICK NOTES</h3>
+            <textarea class="notes-area" id="notesField" placeholder="jot down ideas... (auto-saved)"></textarea>
+          </div>
+        </div>
+        <div style="flex:1;">
+          <h3>🔥 STREAK & QUOTE</h3>
+          <div class="quote-box" id="quoteDisplay" style="background:#211b34; border-radius:1.5rem; padding:1rem; margin-top:0.5rem;">
+            “Focus is the key.”
+            <div class="quote-author" style="margin-top:0.3rem;">– unknown</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-note">⚡ focus portal · particle intro · focus stats · distraction blocker · localStorage sync ⚡</div>
+  </div>
+
   <script>
-    // ─── Color Palette ─────────────────────────────────────────
-    const noteColors = [
-      { name: 'Slate', hex: '#8892B0' },
-      { name: 'Rose', hex: '#F87171' },
-      { name: 'Amber', hex: '#FBBF24' },
-      { name: 'Emerald', hex: '#34D399' },
-      { name: 'Sky', hex: '#38BDF8' },
-      { name: 'Violet', hex: '#A78BFA' }
-    ];
+    (function() {
+      // ---------- DOM ----------
+      const timerEl = document.getElementById('timer');
+      const startPauseBtn = document.getElementById('startPauseBtn');
+      const resetBtn = document.getElementById('resetBtn');
+      const addFiveBtn = document.getElementById('addFiveBtn');
+      const sessionCountEl = document.getElementById('sessionCount');
+      const taskInput = document.getElementById('taskInput');
+      const addTaskBtn = document.getElementById('addTaskBtn');
+      const todoList = document.getElementById('todoList');
+      const progressRing = document.getElementById('progressRing');
+      const progressPercent = document.getElementById('progressPercent');
+      const completedTasksStat = document.getElementById('completedTasksStat');
+      const sessionsStat = document.getElementById('sessionsStat');
+      const streakStat = document.getElementById('streakStat');
+      const focusToggle = document.getElementById('focusToggle');
+      const notesField = document.getElementById('notesField');
+      const quoteDisplay = document.getElementById('quoteDisplay');
+      const achievementBox = document.getElementById('achievementBox');
+      
+      // New focus stats elements
+      const focusScore = document.getElementById('focusScore');
+      const totalMinutes = document.getElementById('totalMinutes');
+      const tasksRate = document.getElementById('tasksRate');
+      const dailyGoal = document.getElementById('dailyGoal');
+      const miniQuote = document.getElementById('miniQuote');
+      const distractionToggle = document.getElementById('distractionToggle');
 
-    // ─── Particle System ───────────────────────────────────────
-    class Particle {
-      constructor(canvas, config) {
-        this.canvas = canvas;
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
-        this.vx = (Math.random() - 0.5) * 0.5;
-        this.vy = (Math.random() - 0.5) * 0.5;
-        this.size = Math.random() * 1.5 + 0.5;
-        this.life = 1;
-        this.decay = Math.random() * 0.002 + 0.0005;
-        this.color = config.primary_action_color || '#6c5ce7';
+      // Portal elements
+      const portalOverlay = document.getElementById('portalOverlay');
+      const canvas = document.getElementById('particle-canvas');
+      
+      // ---------- STATE ----------
+      let timerInterval = null;
+      let isRunning = false;
+      let timeLeft = 25 * 60;
+      const POMODORO = 25 * 60;
+      let sessionCounter = 0;
+      let tasks = [];
+      let focusMode = false;
+      let notes = '';
+      let streak = 0;
+      let lastSessionDate = '';
+      let totalFocusedMinutes = 0;
+      let distractionBlocked = false;
+
+      // ---------- Core functions ----------
+      function loadFromStorage() {
+        try {
+          sessionCounter = parseInt(localStorage.getItem('studySessions') || '0', 10);
+          tasks = JSON.parse(localStorage.getItem('studyTasks') || '[]').map(t => ({ text: t.text || t, completed: t.completed || false }));
+          focusMode = localStorage.getItem('focusMode') === 'true';
+          notes = localStorage.getItem('studyNotes') || '';
+          streak = parseInt(localStorage.getItem('streak') || '0', 10);
+          lastSessionDate = localStorage.getItem('lastSessionDate') || '';
+          totalFocusedMinutes = parseInt(localStorage.getItem('totalFocusedMinutes') || '0', 10);
+          distractionBlocked = localStorage.getItem('distractionBlocked') === 'true';
+        } catch (e) {}
+        if (notesField) notesField.value = notes;
+        updateDistractionUI();
       }
 
-      update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.life -= this.decay;
-        if (this.x < 0 || this.x > this.canvas.width) this.vx *= -1;
-        if (this.y < 0 || this.y > this.canvas.height) this.vy *= -1;
+      function saveSessions() { localStorage.setItem('studySessions', sessionCounter); }
+      function saveTasks() { localStorage.setItem('studyTasks', JSON.stringify(tasks)); }
+      function saveFocus() { localStorage.setItem('focusMode', focusMode); }
+      function saveNotes() { localStorage.setItem('studyNotes', notesField.value); notes = notesField.value; }
+      function saveStreak() { localStorage.setItem('streak', streak); localStorage.setItem('lastSessionDate', lastSessionDate); }
+      function saveTotalMinutes() { localStorage.setItem('totalFocusedMinutes', totalFocusedMinutes); }
+      function saveDistraction() { localStorage.setItem('distractionBlocked', distractionBlocked); }
+
+      function computeOverall() {
+        const sessionGoal = 8;
+        const sessionPart = Math.min(50, (sessionCounter / sessionGoal) * 50);
+        const completedCount = tasks.filter(t => t.completed).length;
+        const taskPart = Math.min(50, completedCount * 5);
+        return Math.round(sessionPart + taskPart);
       }
 
-      draw(ctx) {
-        ctx.globalAlpha = this.life * 0.3;
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
+      function updateProgressAll() {
+        const overall = computeOverall();
+        progressPercent.textContent = overall;
+        const angle = overall * 3.6;
+        progressRing.style.background = `conic-gradient(#b59dff ${angle}deg, #312b48 ${angle}deg 360deg)`;
+        const completedCount = tasks.filter(t => t.completed).length;
+        completedTasksStat.textContent = completedCount;
+        sessionsStat.textContent = sessionCounter;
+        streakStat.textContent = streak;
+        renderAchievements();
+        updateFocusStats();
       }
 
-      isDead() { return this.life <= 0; }
-    }
-
-    class ParticleSystem {
-      constructor(canvasId, config) {
-        this.canvas = document.getElementById(canvasId);
-        this.ctx = this.canvas.getContext('2d');
-        this.particles = [];
-        this.config = config;
-        this.resizeCanvas();
-        window.addEventListener('resize', () => this.resizeCanvas());
-        this.animate();
+      function updateFocusStats() {
+        // Update focus stats panel
+        const completedCount = tasks.filter(t => t.completed).length;
+        const totalTasks = tasks.length;
+        const rate = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
+        
+        // Focus score: combination of streak, session count, and task completion
+        const score = Math.min(99, 50 + (streak * 5) + (sessionCounter * 2) + (rate / 10));
+        focusScore.textContent = Math.round(score);
+        
+        totalMinutes.textContent = totalFocusedMinutes;
+        tasksRate.textContent = rate + '%';
+        
+        // Daily goal: 4 sessions per day
+        const today = new Date().toDateString();
+        const sessionsToday = lastSessionDate === today ? sessionCounter % 4 : 0;
+        dailyGoal.textContent = sessionsToday + '/4';
+        
+        // Mini quotes array
+        const miniQuotes = [
+          "in the zone", "hyperfocus", "deep work", "flow state", 
+          "unstoppable", "elite mindset", "locked in"
+        ];
+        miniQuote.textContent = '"' + miniQuotes[Math.floor(Math.random() * miniQuotes.length)] + '"';
       }
 
-      resizeCanvas() {
-        this.canvas.width = this.canvas.parentElement.clientWidth;
-        this.canvas.height = this.canvas.parentElement.clientHeight;
+      function renderTasks() {
+        if (!todoList) return;
+        todoList.innerHTML = '';
+        if (tasks.length === 0) {
+          todoList.innerHTML = '<li style="justify-content:center;">➕ add a task</li>';
+        } else {
+          tasks.forEach((task, idx) => {
+            const li = document.createElement('li');
+            if (task.completed) li.classList.add('completed');
+            li.innerHTML = `<span class="todo-text">${task.text}</span>
+              <div class="todo-actions">
+                <button class="complete-task">${task.completed ? '↩' : '✓'}</button>
+                <button class="delete-task">✕</button>
+              </div>`;
+            li.querySelector('.complete-task').addEventListener('click', () => {
+              tasks[idx].completed = !tasks[idx].completed;
+              saveTasks(); renderTasks(); updateProgressAll();
+            });
+            li.querySelector('.delete-task').addEventListener('click', () => {
+              tasks.splice(idx, 1); saveTasks(); renderTasks(); updateProgressAll();
+            });
+            todoList.appendChild(li);
+          });
+        }
+        updateProgressAll();
       }
 
-      emit(x, y, count = 8) {
-        for (let i = 0; i < count; i++) {
-          this.particles.push(new Particle(this.canvas, this.config));
+      function renderAchievements() {
+        if (!achievementBox) return;
+        let html = '';
+        if (sessionCounter >= 1) html += '<span class="achievement-badge">🌱 first pomo</span>';
+        if (sessionCounter >= 5) html += '<span class="achievement-badge">⚡ 5 sessions</span>';
+        if (sessionCounter >= 10) html += '<span class="achievement-badge">🔥 10 club</span>';
+        if (tasks.filter(t => t.completed).length >= 5) html += '<span class="achievement-badge">✅ task slayer</span>';
+        if (streak >= 3) html += '<span class="achievement-badge">📅 3-day streak</span>';
+        if (totalFocusedMinutes >= 120) html += '<span class="achievement-badge">⏱️ 2 hours</span>';
+        if (html === '') html = '<span class="achievement-badge">⭐ beginner</span>';
+        achievementBox.innerHTML = html;
+      }
+
+      function updateDistractionUI() {
+        if (distractionBlocked) {
+          distractionToggle.classList.add('active');
+        } else {
+          distractionToggle.classList.remove('active');
         }
       }
 
-      animate() {
-        this.ctx.fillStyle = this.config.background_color || '#0f0f14';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-          const p = this.particles[i];
-          p.update();
-          p.draw(this.ctx);
-          if (p.isDead()) this.particles.splice(i, 1);
-        }
-
-        requestAnimationFrame(() => this.animate());
+      // Timer functions
+      function formatTime(s) { return `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`; }
+      function updateTimerText() { timerEl.textContent = formatTime(timeLeft); }
+      function stopTimer() { 
+        if (timerInterval) { 
+          clearInterval(timerInterval); 
+          timerInterval = null; 
+        } 
+        isRunning = false; 
+        startPauseBtn.innerHTML = '▶ start'; 
       }
-
-      updateConfig(config) {
-        this.config = config;
+      
+      function startTimer() {
+        if (timerInterval) return;
+        isRunning = true; 
+        startPauseBtn.innerHTML = '⏸ pause';
+        
+        // Track when this timer started for minutes calculation
+        const startTime = Date.now();
+        
+        timerInterval = setInterval(() => {
+          if (timeLeft <= 1) {
+            timeLeft = 0; updateTimerText();
+            sessionCounter++;
+            
+            // Add 25 minutes to total focused time
+            totalFocusedMinutes += 25;
+            saveTotalMinutes();
+            
+            const today = new Date().toDateString();
+            if (lastSessionDate !== today) { 
+              streak++; 
+              lastSessionDate = today; 
+            }
+            saveSessions(); 
+            saveStreak(); 
+            updateProgressAll();
+            stopTimer(); 
+            timeLeft = POMODORO; 
+            updateTimerText();
+          } else { 
+            timeLeft--; 
+            updateTimerText();
+          }
+        }, 1000);
       }
-    }
+      
+      function resetTimer() { stopTimer(); timeLeft = POMODORO; updateTimerText(); }
 
-    let particleSystem = null;
-
-    // ─── Default Config ────────────────────────────────────────
-    const defaultConfig = {
-      app_title: 'Dark Notes',
-      empty_state_text: 'No notes yet',
-      background_color: '#0f0f14',
-      surface_color: '#1a1a24',
-      text_color: '#e8e6f0',
-      primary_action_color: '#6c5ce7',
-      secondary_action_color: '#3d3852',
-      font_family: 'DM Sans',
-      font_size: 15
-    };
-
-    let allNotes = [];
-    let editingNote = null;
-    let pendingDelete = false;
-    let isOperating = false;
-
-    // ─── Elements SDK ──────────────────────────────────────────
-    function applyConfig(config) {
-      const c = { ...defaultConfig, ...config };
-      const font = c.font_family || defaultConfig.font_family;
-      const baseSize = c.font_size || defaultConfig.font_size;
-      const bg = c.background_color || defaultConfig.background_color;
-      const surface = c.surface_color || defaultConfig.surface_color;
-      const text = c.text_color || defaultConfig.text_color;
-      const primary = c.primary_action_color || defaultConfig.primary_action_color;
-      const secondary = c.secondary_action_color || defaultConfig.secondary_action_color;
-
-      // Update particle system
-      if (particleSystem) particleSystem.updateConfig(c);
-
-      // Background
-      document.getElementById('appShell').style.background = bg;
-      document.getElementById('appShell').style.color = text;
-
-      // Title
-      const titleEl = document.getElementById('appTitle');
-      titleEl.textContent = c.app_title || defaultConfig.app_title;
-      titleEl.style.fontFamily = `${font}, sans-serif`;
-      titleEl.style.fontSize = `${baseSize * 1.6}px`;
-      titleEl.style.color = text;
-
-      // Logo
-      const logo = document.getElementById('logoIcon');
-      logo.style.background = primary;
-      logo.style.color = '#fff';
-
-      // Count badge
-      const badge = document.getElementById('noteCount');
-      badge.style.background = secondary;
-      badge.style.color = text;
-
-      // Search bar
-      const searchBar = document.getElementById('searchBar');
-      searchBar.style.background = surface;
-      const searchInput = document.getElementById('searchInput');
-      searchInput.style.color = text;
-      searchInput.style.fontFamily = `${font}, sans-serif`;
-      searchInput.style.fontSize = `${baseSize}px`;
-
-      // Empty state
-      document.getElementById('emptyText').textContent = c.empty_state_text || defaultConfig.empty_state_text;
-      document.getElementById('emptyState').style.color = text;
-
-      // FAB
-      const fab = document.getElementById('fabBtn');
-      fab.style.background = primary;
-      fab.style.color = '#fff';
-
-      // Modal
-      const modalPanel = document.getElementById('modalPanel');
-      modalPanel.style.background = surface;
-      modalPanel.style.color = text;
-      document.getElementById('modalTitle').style.fontFamily = `${font}, sans-serif`;
-      document.getElementById('modalTitle').style.color = text;
-      document.getElementById('noteTitle').style.color = text;
-      document.getElementById('noteTitle').style.fontFamily = `${font}, sans-serif`;
-      document.getElementById('noteContent').style.color = text;
-      document.getElementById('noteContent').style.fontFamily = `${font}, sans-serif`;
-      document.getElementById('noteContent').style.fontSize = `${baseSize}px`;
-
-      // Modal buttons
-      const saveBtn = document.getElementById('saveBtn');
-      saveBtn.style.background = primary;
-      saveBtn.style.color = '#fff';
-      document.getElementById('pinBtn').style.color = text;
-      document.getElementById('deleteBtn').style.color = text;
-      document.getElementById('closeModal').style.color = text;
-
-      // Note cards
-      document.querySelectorAll('.note-card').forEach(card => {
-        card.style.background = surface;
-        card.style.color = text;
-        const titleEl = card.querySelector('.note-card-title');
-        const previewEl = card.querySelector('.note-card-preview');
-        if (titleEl) titleEl.style.fontFamily = `${font}, sans-serif`;
-        if (previewEl) {
-          previewEl.style.fontFamily = `${font}, sans-serif`;
-          previewEl.style.fontSize = `${baseSize * 0.87}px`;
+      // Distraction blocker toggle
+      distractionToggle.addEventListener('click', () => {
+        distractionBlocked = !distractionBlocked;
+        saveDistraction();
+        updateDistractionUI();
+        
+        if (distractionBlocked) {
+          // Simulate blocking distracting sites (in a real extension this would do more)
+          alert('🚫 Distraction Blocker ACTIVATED\n\nIn a full extension, this would block social media sites. For this demo, imagine YouTube, Twitter, and Reddit are now blocked.');
         }
       });
 
-      // Update hover accent
-      let accentStyle = document.getElementById('accent-style');
-      if (!accentStyle) {
-        accentStyle = document.createElement('style');
-        accentStyle.id = 'accent-style';
-        document.head.appendChild(accentStyle);
-      }
-      accentStyle.textContent = `.note-card::before { background: ${primary}; }`;
-    }
-
-    function getConfig() {
-      return window.elementSdk?.config ? { ...defaultConfig, ...window.elementSdk.config } : { ...defaultConfig };
-    }
-
-    window.elementSdk.init({
-      defaultConfig,
-      onConfigChange: async (config) => {
-        applyConfig(config);
-      },
-      mapToCapabilities: (config) => ({
-        recolorables: [
-          { get: () => config.background_color || defaultConfig.background_color, set: (v) => { config.background_color = v; window.elementSdk.setConfig({ background_color: v }); } },
-          { get: () => config.surface_color || defaultConfig.surface_color, set: (v) => { config.surface_color = v; window.elementSdk.setConfig({ surface_color: v }); } },
-          { get: () => config.text_color || defaultConfig.text_color, set: (v) => { config.text_color = v; window.elementSdk.setConfig({ text_color: v }); } },
-          { get: () => config.primary_action_color || defaultConfig.primary_action_color, set: (v) => { config.primary_action_color = v; window.elementSdk.setConfig({ primary_action_color: v }); } },
-          { get: () => config.secondary_action_color || defaultConfig.secondary_action_color, set: (v) => { config.secondary_action_color = v; window.elementSdk.setConfig({ secondary_action_color: v }); } }
-        ],
-        borderables: [],
-        fontEditable: {
-          get: () => config.font_family || defaultConfig.font_family,
-          set: (v) => { config.font_family = v; window.elementSdk.setConfig({ font_family: v }); }
-        },
-        fontSizeable: {
-          get: () => config.font_size || defaultConfig.font_size,
-          set: (v) => { config.font_size = v; window.elementSdk.setConfig({ font_size: v }); }
+      // ---------- PORTAL PARTICLES ----------
+      function initParticles() {
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let particles = [];
+        
+        function resize() {
+          width = window.innerWidth;
+          height = window.innerHeight;
+          canvas.width = width;
+          canvas.height = height;
         }
-      }),
-      mapToEditPanelValues: (config) => new Map([
-        ['app_title', config.app_title || defaultConfig.app_title],
-        ['empty_state_text', config.empty_state_text || defaultConfig.empty_state_text]
-      ])
-    });
-
-    // ─── Data SDK ──────────────────────────────────────────────
-    const dataHandler = {
-      onDataChanged(data) {
-        allNotes = data;
-        renderNotes();
+        
+        function createParticles(count) {
+          for (let i = 0; i < count; i++) {
+            particles.push({
+              x: Math.random() * width,
+              y: Math.random() * height,
+              vx: (Math.random() - 0.5) * 0.8,
+              vy: (Math.random() - 0.5) * 0.8,
+              size: Math.random() * 3 + 1,
+              color: `rgba(${150 + Math.random()*100}, ${100 + Math.random()*100}, 255, ${Math.random()*0.5+0.2})`
+            });
+          }
+        }
+        
+        function draw() {
+          if (!ctx) return;
+          ctx.clearRect(0, 0, width, height);
+          
+          for (let p of particles) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.fill();
+            
+            p.x += p.vx;
+            p.y += p.vy;
+            
+            if (p.x < 0 || p.x > width) p.vx *= -1;
+            if (p.y < 0 || p.y > height) p.vy *= -1;
+          }
+          
+          requestAnimationFrame(draw);
+        }
+        
+        resize();
+        createParticles(80);
+        draw();
+        
+        window.addEventListener('resize', () => {
+          resize();
+          particles = [];
+          createParticles(80);
+        });
+        
+        // Fade out and remove overlay after 3 seconds
+        setTimeout(() => {
+          canvas.classList.add('fade-out');
+          portalOverlay.classList.add('hidden');
+          setTimeout(() => {
+            portalOverlay.style.display = 'none';
+          }, 1500);
+        }, 2500);
       }
-    };
 
-    (async () => {
-      const result = await window.dataSdk.init(dataHandler);
-      if (!result.isOk) {
-        showToast('Failed to load data', 'error');
+      // ---------- OTHER EVENT LISTENERS ----------
+      startPauseBtn.addEventListener('click', () => isRunning ? stopTimer() : startTimer());
+      resetBtn.addEventListener('click', resetTimer);
+      addFiveBtn.addEventListener('click', () => { timeLeft += 300; updateTimerText(); });
+      addTaskBtn.addEventListener('click', () => { if (taskInput.value.trim()) { tasks.push({ text: taskInput.value.trim(), completed: false }); saveTasks(); renderTasks(); taskInput.value = ''; } });
+      taskInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTaskBtn.click(); });
+
+      focusToggle.addEventListener('click', () => {
+        focusMode = !focusMode;
+        document.body.classList.toggle('focus-mode', focusMode);
+        focusToggle.classList.toggle('active', focusMode);
+        saveFocus();
+      });
+
+      notesField.addEventListener('input', saveNotes);
+
+      // Quotes
+      const quotes = [
+        { text: "The future depends on what you do today.", author: "Gandhi" },
+        { text: "It always seems impossible until it's done.", author: "Mandela" },
+        { text: "You are stronger than you think.", author: "unknown" },
+        { text: "Small steps every day.", author: "clear" },
+        { text: "Discipline = freedom.", author: "jocko" }
+      ];
+      function setRandomQuote() {
+        const q = quotes[Math.floor(Math.random() * quotes.length)];
+        quoteDisplay.innerHTML = `“${q.text}”<div class="quote-author" style="margin-top:0.3rem;">– ${q.author}</div>`;
       }
+      setRandomQuote();
+      setInterval(setRandomQuote, 30000);
+
+      // Bootstrap
+      loadFromStorage();
+      document.body.classList.toggle('focus-mode', focusMode);
+      focusToggle.classList.toggle('active', focusMode);
+      timeLeft = POMODORO; updateTimerText();
+      renderTasks();
+      updateProgressAll();
+      stopTimer();
+      
+      // Start particle intro
+      initParticles();
     })();
-
-    // ─── Rendering ─────────────────────────────────────────────
-    function renderNotes() {
-      const grid = document.getElementById('notesGrid');
-      const empty = document.getElementById('emptyState');
-      const badge = document.getElementById('noteCount');
-      const query = document.getElementById('searchInput').value.toLowerCase().trim();
-
-      let filtered = allNotes;
-      if (query) {
-        filtered = allNotes.filter(n =>
-          (n.title || '').toLowerCase().includes(query) ||
-          (n.content || '').toLowerCase().includes(query)
-        );
-      }
-
-      // Sort: pinned first, then by updated_at desc
-      filtered.sort((a, b) => {
-        if (a.pinned && !b.pinned) return -1;
-        if (!a.pinned && b.pinned) return 1;
-        return (b.updated_at || '').localeCompare(a.updated_at || '');
-      });
-
-      badge.textContent = `${allNotes.length} note${allNotes.length !== 1 ? 's' : ''}`;
-
-      if (filtered.length === 0) {
-        grid.style.display = 'none';
-        empty.style.display = 'flex';
-        if (query) {
-          document.getElementById('emptyText').textContent = 'No matching notes';
-        } else {
-          const c = getConfig();
-          document.getElementById('emptyText').textContent = c.empty_state_text || defaultConfig.empty_state_text;
-        }
-        return;
-      }
-
-      grid.style.display = 'grid';
-      empty.style.display = 'none';
-
-      const existingMap = new Map();
-      [...grid.children].forEach(el => { if (el.dataset.noteId) existingMap.set(el.dataset.noteId, el); });
-
-      const newIds = new Set(filtered.map(n => n.note_id));
-
-      // Remove cards no longer in filtered
-      existingMap.forEach((el, id) => {
-        if (!newIds.has(id)) el.remove();
-      });
-
-      // Update or create
-      filtered.forEach((note, i) => {
-        let card = grid.querySelector(`[data-note-id="${note.note_id}"]`);
-        if (card) {
-          updateCard(card, note);
-        } else {
-          card = createCard(note);
-          grid.appendChild(card);
-        }
-      });
-
-      applyConfig(getConfig());
-    }
-
-    function createCard(note) {
-      const c = getConfig();
-      const card = document.createElement('article');
-      card.className = 'note-card';
-      card.dataset.noteId = note.note_id;
-      card.setAttribute('role', 'button');
-      card.setAttribute('tabindex', '0');
-      card.setAttribute('aria-label', `Open note: ${note.title || 'Untitled'}`);
-
-      const preview = (note.content || '').substring(0, 120);
-      const dateStr = note.updated_at ? formatDate(note.updated_at) : '';
-      const wordCount = (note.content || '').split(/\s+/).filter(w => w).length;
-      const noteColor = note.color || noteColors[0].hex;
-
-      card.innerHTML = `
-        <div class="accent-line" style="background: ${noteColor};"></div>
-        <div class="color-dot" style="background: ${noteColor};"></div>
-        ${note.pinned ? '<div class="pin-badge"><i data-lucide="pin" style="width:12px;height:12px;"></i></div>' : ''}
-        <h3 class="note-card-title" style="font-size:16px;font-weight:600;margin-bottom:8px;letter-spacing:-0.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(note.title || 'Untitled')}</h3>
-        <p class="note-card-preview" style="opacity:0.6;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:12px;">${escapeHtml(preview)}</p>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <p class="note-card-date" style="font-size:11px;opacity:0.35;">${dateStr}</p>
-          <span class="word-count">${wordCount} words</span>
-        </div>
-      `;
-
-      card.addEventListener('click', () => openNote(note));
-      card.addEventListener('keydown', (e) => { if (e.key === 'Enter') openNote(note); });
-      lucide.createIcons({ nodes: [card] });
-      return card;
-    }
-
-    function updateCard(card, note) {
-      const titleEl = card.querySelector('.note-card-title');
-      const previewEl = card.querySelector('.note-card-preview');
-      const dateEl = card.querySelector('.note-card-date');
-      const wordCountEl = card.querySelector('.word-count');
-      const noteColor = note.color || noteColors[0].hex;
-
-      titleEl.textContent = note.title || 'Untitled';
-      previewEl.textContent = (note.content || '').substring(0, 120);
-      dateEl.textContent = note.updated_at ? formatDate(note.updated_at) : '';
-      const wordCount = (note.content || '').split(/\s+/).filter(w => w).length;
-      if (wordCountEl) wordCountEl.textContent = `${wordCount} words`;
-
-      // Update color indicator
-      const accentLine = card.querySelector('.accent-line');
-      const colorDot = card.querySelector('.color-dot');
-      if (accentLine) accentLine.style.background = noteColor;
-      if (colorDot) colorDot.style.background = noteColor;
-
-      // Update pin badge
-      const existingPin = card.querySelector('.pin-badge');
-      if (note.pinned && !existingPin) {
-        const badge = document.createElement('div');
-        badge.className = 'pin-badge';
-        badge.innerHTML = '<i data-lucide="pin" style="width:12px;height:12px;"></i>';
-        card.prepend(badge);
-        lucide.createIcons({ nodes: [badge] });
-      } else if (!note.pinned && existingPin) {
-        existingPin.remove();
-      }
-
-      card.setAttribute('aria-label', `Open note: ${note.title || 'Untitled'}`);
-      card.onclick = () => openNote(note);
-    }
-
-    function formatDate(iso) {
-      try {
-        const d = new Date(iso);
-        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · ' +
-               d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-      } catch { return ''; }
-    }
-
-    function escapeHtml(str) {
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
-    }
-
-    // ─── Color Selector ────────────────────────────────────────
-    function renderColorSelector() {
-      const selector = document.getElementById('colorSelector');
-      selector.innerHTML = '';
-      const currentColor = editingNote?.color || noteColors[0].hex;
-
-      noteColors.forEach(color => {
-        const option = document.createElement('button');
-        option.className = 'color-option';
-        option.style.background = color.hex;
-        if (color.hex === currentColor) option.classList.add('selected');
-        option.setAttribute('aria-label', `Select ${color.name} color`);
-        option.addEventListener('click', (e) => {
-          e.preventDefault();
-          document.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('selected'));
-          option.classList.add('selected');
-          editingNote = { ...editingNote, color: color.hex };
-          option.style.animation = 'none';
-          setTimeout(() => { option.style.animation = 'colorPop 0.4s ease-out'; }, 10);
-        });
-        selector.appendChild(option);
-      });
-    }
-
-    // ─── Modal Logic ───────────────────────────────────────────
-    function openModal() {
-      document.getElementById('modal').classList.add('active');
-      pendingDelete = false;
-      document.getElementById('deleteConfirmArea').innerHTML = '';
-      renderColorSelector();
-    }
-
-    function closeModalFn() {
-      document.getElementById('modal').classList.remove('active');
-      editingNote = null;
-      pendingDelete = false;
-      document.getElementById('deleteConfirmArea').innerHTML = '';
-      document.getElementById('noteTitle').value = '';
-      document.getElementById('noteContent').value = '';
-    }
-
-    function openNote(note) {
-      editingNote = note;
-      document.getElementById('noteTitle').value = note.title || '';
-      document.getElementById('noteContent').value = note.content || '';
-      document.getElementById('modalTitle').textContent = 'Edit Note';
-      document.getElementById('deleteBtn').style.display = 'flex';
-      document.getElementById('pinBtn').style.opacity = note.pinned ? '1' : '0.5';
-      openModal();
-    }
-
-    function openNewNote() {
-      editingNote = null;
-      document.getElementById('noteTitle').value = '';
-      document.getElementById('noteContent').value = '';
-      document.getElementById('modalTitle').textContent = 'New Note';
-      document.getElementById('deleteBtn').style.display = 'none';
-      document.getElementById('pinBtn').style.opacity = '0.5';
-      openModal();
-      setTimeout(() => document.getElementById('noteTitle').focus(), 100);
-    }
-
-    // ─── Actions ───────────────────────────────────────────────
-    async function saveNote() {
-      if (isOperating) return;
-      const title = document.getElementById('noteTitle').value.trim();
-      const content = document.getElementById('noteContent').value.trim();
-      if (!title && !content) {
-        showToast('Write something first', 'warn');
-        return;
-      }
-
-      isOperating = true;
-      const saveBtn = document.getElementById('saveBtn');
-      saveBtn.innerHTML = '<span class="loading-spinner"></span> Saving...';
-      saveBtn.style.opacity = '0.6';
-      saveBtn.disabled = true;
-
-      const now = new Date().toISOString();
-
-      if (editingNote) {
-        const updated = { ...editingNote, title, content, updated_at: now };
-        const result = await window.dataSdk.update(updated);
-        if (result.isOk) {
-          showToast('✓ Note updated');
-          particleSystem?.emit(window.innerWidth / 2, window.innerHeight / 2, 12);
-        } else {
-          showToast('Failed to save', 'error');
-        }
-      } else {
-        if (allNotes.length >= 999) {
-          showToast('Note limit reached (999)', 'warn');
-          isOperating = false;
-          resetSaveBtn();
-          return;
-        }
-        const result = await window.dataSdk.create({
-          note_id: 'n_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8),
-          title,
-          content,
-          created_at: now,
-          updated_at: now,
-          pinned: false,
-          color: editingNote?.color || noteColors[0].hex
-        });
-        if (result.isOk) {
-          showToast('✓ Note created');
-          particleSystem?.emit(window.innerWidth / 2, window.innerHeight / 2, 16);
-        } else {
-          showToast('Failed to create', 'error');
-        }
-      }
-
-      isOperating = false;
-      resetSaveBtn();
-      closeModalFn();
-    }
-
-    function resetSaveBtn() {
-      const saveBtn = document.getElementById('saveBtn');
-      saveBtn.innerHTML = '<i data-lucide="check" style="width:16px;height:16px;"></i> Save';
-      saveBtn.style.opacity = '1';
-      saveBtn.disabled = false;
-      lucide.createIcons({ nodes: [saveBtn] });
-    }
-
-    async function togglePin() {
-      if (!editingNote || isOperating) return;
-      isOperating = true;
-      const updated = { ...editingNote, pinned: !editingNote.pinned, updated_at: new Date().toISOString() };
-      const result = await window.dataSdk.update(updated);
-      if (result.isOk) {
-        editingNote = updated;
-        document.getElementById('pinBtn').style.opacity = updated.pinned ? '1' : '0.5';
-        showToast(updated.pinned ? '📌 Pinned' : '📌 Unpinned');
-        particleSystem?.emit(window.innerWidth - 50, 70, 8);
-      } else {
-        showToast('Failed to update', 'error');
-      }
-      isOperating = false;
-    }
-
-    function requestDelete() {
-      if (!editingNote) return;
-      if (pendingDelete) return;
-      pendingDelete = true;
-      const c = getConfig();
-      const area = document.getElementById('deleteConfirmArea');
-      area.innerHTML = `
-        <div class="delete-confirm-bar">
-          <span style="font-size:13px;opacity:0.7;flex:1;display:flex;align-items:center;">Delete this note?</span>
-          <button id="confirmDeleteBtn" class="action-button" style="background: #e74c3c; color: #fff;">Delete</button>
-          <button id="cancelDeleteBtn" class="action-button" style="background: ${c.secondary_action_color}; color: ${c.text_color};">Cancel</button>
-        </div>
-      `;
-      document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
-      document.getElementById('cancelDeleteBtn').addEventListener('click', () => {
-        pendingDelete = false;
-        area.innerHTML = '';
-      });
-    }
-
-    async function confirmDelete() {
-      if (!editingNote || isOperating) return;
-      isOperating = true;
-      const btn = document.getElementById('confirmDeleteBtn');
-      if (btn) { btn.textContent = 'Deleting...'; btn.disabled = true; }
-
-      const result = await window.dataSdk.delete(editingNote);
-      if (result.isOk) {
-        showToast('✓ Note deleted');
-        particleSystem?.emit(window.innerWidth / 2, window.innerHeight / 2, 20);
-      } else {
-        showToast('Failed to delete', 'error');
-      }
-      isOperating = false;
-      closeModalFn();
-    }
-
-    // ─── Toast ─────────────────────────────────────────────────
-    function showToast(msg, type = 'success') {
-      const container = document.getElementById('toastContainer');
-      const c = getConfig();
-      const toast = document.createElement('div');
-      toast.className = 'toast';
-      const bgMap = { success: c.primary_action_color, error: '#e74c3c', warn: '#f39c12' };
-      toast.style.background = bgMap[type] || c.primary_action_color;
-      toast.style.color = '#fff';
-      toast.textContent = msg;
-      container.appendChild(toast);
-      setTimeout(() => {
-        toast.classList.add('exiting');
-        setTimeout(() => toast.remove(), 300);
-      }, 2400);
-    }
-
-    // ─── Event Listeners ───────────────────────────────────────
-    document.getElementById('fabBtn').addEventListener('click', openNewNote);
-    document.getElementById('closeModal').addEventListener('click', closeModalFn);
-    document.getElementById('saveBtn').addEventListener('click', saveNote);
-    document.getElementById('pinBtn').addEventListener('click', togglePin);
-    document.getElementById('deleteBtn').addEventListener('click', requestDelete);
-    document.getElementById('modal').addEventListener('click', (e) => {
-      if (e.target === document.getElementById('modal')) closeModalFn();
-    });
-
-    // FAB particle effect on click
-    document.getElementById('fabBtn').addEventListener('click', () => {
-      const fab = document.getElementById('fabBtn');
-      const rect = fab.getBoundingClientRect();
-      particleSystem?.emit(rect.left + rect.width / 2, rect.top + rect.height / 2, 6);
-    });
-
-    let searchTimeout;
-    document.getElementById('searchInput').addEventListener('input', () => {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(renderNotes, 200);
-    });
-
-    // Handle keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeModalFn();
-      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
-        e.preventDefault();
-        openNewNote();
-      }
-    });
-
-    // Initialize
-    lucide.createIcons();
-    particleSystem = new ParticleSystem('particleCanvas', defaultConfig);
-    applyConfig(defaultConfig);
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9dc29576218b21f2',t:'MTc3MzQ4NDAyNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
